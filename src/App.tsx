@@ -20,7 +20,6 @@ export default function CancerCareTrackerTW() {
     其他觀察: { 心情: "穩定", 皮膚: "", 睡眠: "一般", 備註: "" },
   };
 
-  // ✅ Taiwan date and hour
   const getTaiwanDate = () =>
     new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
 
@@ -41,18 +40,15 @@ export default function CancerCareTrackerTW() {
     return "夜間 (22–7)";
   };
 
-  // 🕒 Initialize or load today's data
   useEffect(() => {
     const date = getTaiwanDate();
     setTodayDate(date);
-
     const saved = localStorage.getItem("careTrackerRecords");
     let parsed = saved ? JSON.parse(saved) : [];
 
     const todayRecord = parsed.find((r: any) => r.date === date);
-    if (todayRecord) {
-      setTodayData(todayRecord.data);
-    } else {
+    if (todayRecord) setTodayData(todayRecord.data);
+    else {
       const emptyData = Object.fromEntries(times.map((t) => [t, defaultSections]));
       setTodayData(emptyData);
       parsed.push({ date, data: emptyData });
@@ -60,18 +56,16 @@ export default function CancerCareTrackerTW() {
     }
     setHistory(parsed);
 
-    // Update highlight every minute
     const updateTime = () => {
-      const currentHour = getTaiwanHour();
+      const hour = getTaiwanHour();
       setCurrentTimeLabel(determineCurrentTimeZone());
-      setShowMorningNotice(currentHour >= 6 && currentHour < 8);
+      setShowMorningNotice(hour >= 6 && hour < 8);
     };
     updateTime();
     const timer = setInterval(updateTime, 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // 🕗 Auto-create new sheet every 8 AM (Taiwan)
   useEffect(() => {
     const interval = setInterval(() => {
       const hour = getTaiwanHour();
@@ -86,11 +80,10 @@ export default function CancerCareTrackerTW() {
         setTodayData(newEmpty);
         setTodayDate(dateNow);
       }
-    }, 60 * 1000); // check every minute
+    }, 60 * 1000);
     return () => clearInterval(interval);
   }, [todayDate]);
 
-  // 💾 Save
   const saveData = (newData: RecordData) => {
     const date = getTaiwanDate();
     const updatedRecord = { date, data: newData };
@@ -100,7 +93,6 @@ export default function CancerCareTrackerTW() {
     localStorage.setItem("careTrackerRecords", JSON.stringify(updatedHistory));
   };
 
-  // ✏️ Handle change
   const handleChange = (
     time: string,
     section: string,
@@ -172,9 +164,6 @@ export default function CancerCareTrackerTW() {
               padding: "16px",
               marginTop: "20px",
               backgroundColor: isActive ? "#f0fdf4" : "#f9fafb",
-              boxShadow: isActive
-                ? "0 0 10px rgba(74, 222, 128, 0.4)"
-                : "none",
               transition: "all 0.3s ease",
             }}
           >
@@ -190,47 +179,21 @@ export default function CancerCareTrackerTW() {
 
             {/* 生命徵象 */}
             <h3>生命徵象</h3>
-            <div style={{ marginBottom: "8px" }}>
-              <label>體溫：</label>
-              <input
-                type="number"
-                step="any"
-                inputMode="decimal"
-                value={todayData[time]?.["生命徵象"]?.["體溫"] || ""}
-                onFocus={() => setFocusedField(`${time}-體溫`)}
-                onBlur={() => setFocusedField(null)}
-                onChange={(e) =>
-                  handleChange(time, "生命徵象", "體溫", e.target.value)
-                }
-                style={getInputStyle(`${time}-體溫`)}
-              />
-            </div>
-            <div style={{ marginBottom: "8px" }}>
-              <label>血壓：</label>
-              <input
-                type="text"
-                value={todayData[time]?.["生命徵象"]?.["血壓"] || ""}
-                onFocus={() => setFocusedField(`${time}-血壓`)}
-                onBlur={() => setFocusedField(null)}
-                onChange={(e) =>
-                  handleChange(time, "生命徵象", "血壓", e.target.value)
-                }
-                style={getInputStyle(`${time}-血壓`)}
-              />
-            </div>
-            <div style={{ marginBottom: "8px" }}>
-              <label>脈搏：</label>
-              <input
-                type="text"
-                value={todayData[time]?.["生命徵象"]?.["脈搏"] || ""}
-                onFocus={() => setFocusedField(`${time}-脈搏`)}
-                onBlur={() => setFocusedField(null)}
-                onChange={(e) =>
-                  handleChange(time, "生命徵象", "脈搏", e.target.value)
-                }
-                style={getInputStyle(`${time}-脈搏`)}
-              />
-            </div>
+            {["體溫", "血壓", "脈搏"].map((field) => (
+              <div key={field} style={{ marginBottom: "8px" }}>
+                <label>{field}：</label>
+                <input
+                  type="text"
+                  value={todayData[time]?.["生命徵象"]?.[field] || ""}
+                  onFocus={() => setFocusedField(`${time}-${field}`)}
+                  onBlur={() => setFocusedField(null)}
+                  onChange={(e) =>
+                    handleChange(time, "生命徵象", field, e.target.value)
+                  }
+                  style={getInputStyle(`${time}-${field}`)}
+                />
+              </div>
+            ))}
             <div style={{ marginBottom: "8px" }}>
               <label>疼痛：</label>
               <select
@@ -252,27 +215,21 @@ export default function CancerCareTrackerTW() {
               <input
                 type="text"
                 value={todayData[time]?.["飲食與液體"]?.["食物"] || ""}
-                onFocus={() => setFocusedField(`${time}-食物`)}
-                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "飲食與液體", "食物", e.target.value)
                 }
-                style={getInputStyle(`${time}-食物`)}
+                style={baseInputStyle}
               />
             </div>
             <div style={{ marginBottom: "8px" }}>
               <label>液體攝取量 (mL)：</label>
               <input
                 type="number"
-                step="any"
-                inputMode="decimal"
                 value={todayData[time]?.["飲食與液體"]?.["液體攝取量"] || ""}
-                onFocus={() => setFocusedField(`${time}-液體攝取量`)}
-                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "飲食與液體", "液體攝取量", e.target.value)
                 }
-                style={getInputStyle(`${time}-液體攝取量`)}
+                style={baseInputStyle}
               />
             </div>
             <div style={{ marginBottom: "8px" }}>
@@ -289,11 +246,71 @@ export default function CancerCareTrackerTW() {
                 <option>無</option>
               </select>
             </div>
+
+            {/* 藥物與廁所 */}
+            <h3>藥物與廁所</h3>
+            <div style={{ marginBottom: "8px" }}>
+              <label>藥物紀錄：</label>
+              <input
+                type="text"
+                value={todayData[time]?.["藥物與廁所"]?.["藥物紀錄"] || ""}
+                onChange={(e) =>
+                  handleChange(time, "藥物與廁所", "藥物紀錄", e.target.value)
+                }
+                style={baseInputStyle}
+              />
+            </div>
+            <div style={{ marginBottom: "8px" }}>
+              <label>廁所：</label>
+              <select
+                value={todayData[time]?.["藥物與廁所"]?.["廁所"] || "無"}
+                onChange={(e) =>
+                  handleChange(time, "藥物與廁所", "廁所", e.target.value)
+                }
+                style={baseInputStyle}
+              >
+                <option>無</option>
+                <option>小號</option>
+                <option>大號</option>
+                <option>大小號</option>
+              </select>
+            </div>
+
+            {/* 其他觀察 */}
+            <h3>其他觀察</h3>
+            <div style={{ marginBottom: "8px" }}>
+              <label>心情：</label>
+              <select
+                value={todayData[time]?.["其他觀察"]?.["心情"] || "穩定"}
+                onChange={(e) =>
+                  handleChange(time, "其他觀察", "心情", e.target.value)
+                }
+                style={baseInputStyle}
+              >
+                <option>穩定</option>
+                <option>焦慮</option>
+                <option>疲倦</option>
+                <option>其他</option>
+              </select>
+            </div>
+            {["皮膚", "睡眠", "備註"].map((field) => (
+              <div key={field} style={{ marginBottom: "8px" }}>
+                <label>{field}：</label>
+                <input
+                  type="text"
+                  value={todayData[time]?.["其他觀察"]?.[field] || ""}
+                  onChange={(e) =>
+                    handleChange(time, "其他觀察", field, e.target.value)
+                  }
+                  style={baseInputStyle}
+                />
+              </div>
+            ))}
           </div>
         );
       })}
 
-      {/* 🗓️ 歷史紀錄（可展開） */}
+      {/* 歷史紀錄 */}
       <div style={{ marginTop: "40px" }}>
         <h2 style={{ color: "#14532d" }}>📜 過往紀錄</h2>
         {history.length === 0 ? (
@@ -318,31 +335,20 @@ export default function CancerCareTrackerTW() {
                     fontWeight: 600,
                     color: "#166534",
                     fontSize: "1.1em",
-                    marginBottom: "8px",
                   }}
                 >
                   📅 {r.date}
                 </summary>
 
                 {Object.entries(r.data).map(([time, sections]: [string, any]) => (
-                  <div
-                    key={time}
-                    style={{
-                      marginBottom: "12px",
-                      background: "#ffffff",
-                      borderRadius: "6px",
-                      padding: "8px 10px",
-                      border: "1px solid #d1d5db",
-                    }}
-                  >
-                    <h4 style={{ color: "#15803d", marginBottom: "6px" }}>{time}</h4>
-
+                  <div key={time} style={{ marginTop: "10px" }}>
+                    <h4 style={{ color: "#15803d" }}>{time}</h4>
                     {Object.entries(sections).map(([section, fields]: [string, any]) => (
-                      <div key={section} style={{ marginLeft: "10px", marginBottom: "6px" }}>
-                        <strong style={{ color: "#374151" }}>{section}：</strong>
+                      <div key={section} style={{ marginLeft: "10px" }}>
+                        <strong>{section}：</strong>
                         <div style={{ marginLeft: "8px" }}>
                           {Object.entries(fields).map(([key, value]: [string, any]) => (
-                            <div key={key} style={{ fontSize: "0.9em", color: "#4b5563" }}>
+                            <div key={key}>
                               {key}：{value || "—"}
                             </div>
                           ))}
