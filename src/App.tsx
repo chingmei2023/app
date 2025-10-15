@@ -13,6 +13,9 @@ export default function CancerCareTrackerTW() {
   const [todayDate, setTodayDate] = useState<string>("");
   const [showMorningNotice, setShowMorningNotice] = useState<boolean>(false);
 
+  // 🧩 Deep clone helper (prevents frozen editing bug)
+  const deepClone = (obj: any) => JSON.parse(JSON.stringify(obj));
+
   const defaultSections = {
     生命徵象: { 體溫: "", 血壓: "", 脈搏: "", 疼痛: "無" },
     飲食與液體: { 食物: "", 液體攝取量: "", 食慾: "一般" },
@@ -20,6 +23,7 @@ export default function CancerCareTrackerTW() {
     其他觀察: { 心情: "穩定", 皮膚: "", 睡眠: "一般", 備註: "" },
   };
 
+  // Taiwan time helpers
   const getTaiwanDate = () =>
     new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
 
@@ -40,6 +44,7 @@ export default function CancerCareTrackerTW() {
     return "夜間 (22–7)";
   };
 
+  // 🕒 Initialize / Load existing data
   useEffect(() => {
     const date = getTaiwanDate();
     setTodayDate(date);
@@ -47,9 +52,12 @@ export default function CancerCareTrackerTW() {
     let parsed = saved ? JSON.parse(saved) : [];
 
     const todayRecord = parsed.find((r: any) => r.date === date);
-    if (todayRecord) setTodayData(todayRecord.data);
-    else {
-      const emptyData = Object.fromEntries(times.map((t) => [t, defaultSections]));
+    if (todayRecord) {
+      setTodayData(todayRecord.data);
+    } else {
+      const emptyData = Object.fromEntries(
+        times.map((t) => [t, deepClone(defaultSections)])
+      );
       setTodayData(emptyData);
       parsed.push({ date, data: emptyData });
       localStorage.setItem("careTrackerRecords", JSON.stringify(parsed));
@@ -66,6 +74,7 @@ export default function CancerCareTrackerTW() {
     return () => clearInterval(timer);
   }, []);
 
+  // 🕗 Auto new sheet every 8 AM
   useEffect(() => {
     const interval = setInterval(() => {
       const hour = getTaiwanHour();
@@ -73,7 +82,9 @@ export default function CancerCareTrackerTW() {
       if (hour === 8 && dateNow !== todayDate) {
         const saved = localStorage.getItem("careTrackerRecords");
         let parsed = saved ? JSON.parse(saved) : [];
-        const newEmpty = Object.fromEntries(times.map((t) => [t, defaultSections]));
+        const newEmpty = Object.fromEntries(
+          times.map((t) => [t, deepClone(defaultSections)])
+        );
         parsed.push({ date: dateNow, data: newEmpty });
         localStorage.setItem("careTrackerRecords", JSON.stringify(parsed));
         setHistory(parsed);
@@ -84,6 +95,7 @@ export default function CancerCareTrackerTW() {
     return () => clearInterval(interval);
   }, [todayDate]);
 
+  // 💾 Save data
   const saveData = (newData: RecordData) => {
     const date = getTaiwanDate();
     const updatedRecord = { date, data: newData };
@@ -93,6 +105,7 @@ export default function CancerCareTrackerTW() {
     localStorage.setItem("careTrackerRecords", JSON.stringify(updatedHistory));
   };
 
+  // ✏️ Handle field change
   const handleChange = (
     time: string,
     section: string,
@@ -127,7 +140,7 @@ export default function CancerCareTrackerTW() {
     <div style={{ padding: "20px", fontFamily: "Noto Sans TC, sans-serif" }}>
       <h1 style={{ textAlign: "center", color: "#166534" }}>每日照護追蹤表</h1>
       <p style={{ textAlign: "center", color: "#555" }}>
-        自動儲存，每日早上 8 點自動切換新表（依台灣時間）
+        自動儲存，每日早上 8 點自動建立新表（依台灣時間）
         <br />
         今日日期：<strong>{todayDate}</strong>　
         目前時段：
@@ -310,7 +323,7 @@ export default function CancerCareTrackerTW() {
         );
       })}
 
-      {/* 歷史紀錄 */}
+      {/* 過往紀錄 */}
       <div style={{ marginTop: "40px" }}>
         <h2 style={{ color: "#14532d" }}>📜 過往紀錄</h2>
         {history.length === 0 ? (
