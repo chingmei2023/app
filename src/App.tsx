@@ -5,11 +5,13 @@ interface RecordData {
 }
 
 export default function CancerCareTrackerTW() {
-  const times = ["早晨 (6–11)", "中午 (11–16)", "傍晚 (16–21)", "夜間 (21–6)"];
+  const times = ["早晨 (7–11)", "中午 (11–16)", "傍晚 (16–22)", "夜間 (22–7)"];
   const [todayData, setTodayData] = useState<RecordData>({});
   const [history, setHistory] = useState<RecordData[]>([]);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [currentTimeLabel, setCurrentTimeLabel] = useState<string>("");
+  const [todayDate, setTodayDate] = useState<string>("");
+  const [showMorningNotice, setShowMorningNotice] = useState<boolean>(false);
 
   const defaultSections = {
     生命徵象: { 體溫: "", 血壓: "", 脈搏: "", 疼痛: "無" },
@@ -18,47 +20,77 @@ export default function CancerCareTrackerTW() {
     其他觀察: { 心情: "穩定", 皮膚: "", 睡眠: "一般", 備註: "" },
   };
 
-  // ✅ Always use Taiwan time zone
+  // ✅ Taiwan date and hour
   const getTaiwanDate = () =>
     new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
 
   const getTaiwanHour = () =>
-    new Date().toLocaleString("zh-TW", {
-      timeZone: "Asia/Taipei",
-      hour: "2-digit",
-      hour12: false,
-    });
+    parseInt(
+      new Date().toLocaleString("zh-TW", {
+        timeZone: "Asia/Taipei",
+        hour: "2-digit",
+        hour12: false,
+      })
+    );
 
-  // 🕒 Determine which section should be highlighted
   const determineCurrentTimeZone = () => {
-    const hour = parseInt(getTaiwanHour());
-    if (hour >= 6 && hour < 11) return "早晨 (6–11)";
+    const hour = getTaiwanHour();
+    if (hour >= 7 && hour < 11) return "早晨 (7–11)";
     if (hour >= 11 && hour < 16) return "中午 (11–16)";
-    if (hour >= 16 && hour < 21) return "傍晚 (16–21)";
-    return "夜間 (21–6)";
+    if (hour >= 16 && hour < 22) return "傍晚 (16–22)";
+    return "夜間 (22–7)";
   };
 
+  // 🕒 Initialize or load today's data
   useEffect(() => {
     const date = getTaiwanDate();
-    const saved = localStorage.getItem("careTrackerRecords");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setHistory(parsed);
-      const todayRecord = parsed.find((r: any) => r.date === date);
-      if (todayRecord) setTodayData(todayRecord.data);
-      else
-        setTodayData(Object.fromEntries(times.map((t) => [t, defaultSections])));
-    } else {
-      setTodayData(Object.fromEntries(times.map((t) => [t, defaultSections])));
-    }
+    setTodayDate(date);
 
-    // ⏰ Auto update current section every minute
-    const updateTime = () => setCurrentTimeLabel(determineCurrentTimeZone());
+    const saved = localStorage.getItem("careTrackerRecords");
+    let parsed = saved ? JSON.parse(saved) : [];
+
+    const todayRecord = parsed.find((r: any) => r.date === date);
+    if (todayRecord) {
+      setTodayData(todayRecord.data);
+    } else {
+      const emptyData = Object.fromEntries(times.map((t) => [t, defaultSections]));
+      setTodayData(emptyData);
+      parsed.push({ date, data: emptyData });
+      localStorage.setItem("careTrackerRecords", JSON.stringify(parsed));
+    }
+    setHistory(parsed);
+
+    // Update highlight every minute
+    const updateTime = () => {
+      const currentHour = getTaiwanHour();
+      setCurrentTimeLabel(determineCurrentTimeZone());
+      setShowMorningNotice(currentHour >= 6 && currentHour < 8);
+    };
     updateTime();
     const timer = setInterval(updateTime, 60000);
     return () => clearInterval(timer);
   }, []);
 
+  // 🕗 Auto-create new sheet every 8 AM (Taiwan)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const hour = getTaiwanHour();
+      const dateNow = getTaiwanDate();
+      if (hour === 8 && dateNow !== todayDate) {
+        const saved = localStorage.getItem("careTrackerRecords");
+        let parsed = saved ? JSON.parse(saved) : [];
+        const newEmpty = Object.fromEntries(times.map((t) => [t, defaultSections]));
+        parsed.push({ date: dateNow, data: newEmpty });
+        localStorage.setItem("careTrackerRecords", JSON.stringify(parsed));
+        setHistory(parsed);
+        setTodayData(newEmpty);
+        setTodayDate(dateNow);
+      }
+    }, 60 * 1000); // check every minute
+    return () => clearInterval(interval);
+  }, [todayDate]);
+
+  // 💾 Save
   const saveData = (newData: RecordData) => {
     const date = getTaiwanDate();
     const updatedRecord = { date, data: newData };
@@ -68,6 +100,7 @@ export default function CancerCareTrackerTW() {
     localStorage.setItem("careTrackerRecords", JSON.stringify(updatedHistory));
   };
 
+  // ✏️ Handle change
   const handleChange = (
     time: string,
     section: string,
@@ -102,10 +135,31 @@ export default function CancerCareTrackerTW() {
     <div style={{ padding: "20px", fontFamily: "Noto Sans TC, sans-serif" }}>
       <h1 style={{ textAlign: "center", color: "#166534" }}>每日照護追蹤表</h1>
       <p style={{ textAlign: "center", color: "#555" }}>
-        自動儲存，每日自動切換（依台灣時間）
+        自動儲存，每日早上 8 點自動切換新表（依台灣時間）
         <br />
-        目前時段：<strong style={{ color: "#166534" }}>{currentTimeLabel}</strong>
+        今日日期：<strong>{todayDate}</strong>　
+        目前時段：
+        <strong style={{ color: "#166534" }}>{currentTimeLabel}</strong>
       </p>
+
+      {showMorningNotice && (
+        <div
+          style={{
+            background: "#fef9c3",
+            color: "#854d0e",
+            border: "1px solid #facc15",
+            borderRadius: "8px",
+            padding: "10px",
+            margin: "10px 0 20px",
+            textAlign: "center",
+            fontWeight: 600,
+          }}
+        >
+          ⚠️ 現在是早上 6–8 點，新的一天即將開始，
+          <br />
+          早上 8 點後將自動建立新表。
+        </div>
+      )}
 
       {times.map((time) => {
         const isActive = time === currentTimeLabel;
@@ -235,28 +289,11 @@ export default function CancerCareTrackerTW() {
                 <option>無</option>
               </select>
             </div>
-
-            {/* 其他觀察 */}
-            <h3>其他觀察</h3>
-            <div style={{ marginBottom: "8px" }}>
-              <label>睡眠：</label>
-              <select
-                value={todayData[time]?.["其他觀察"]?.["睡眠"] || "一般"}
-                onChange={(e) =>
-                  handleChange(time, "其他觀察", "睡眠", e.target.value)
-                }
-                style={baseInputStyle}
-              >
-                <option>好</option>
-                <option>一般</option>
-                <option>無</option>
-              </select>
-            </div>
           </div>
         );
       })}
 
-      {/* 歷史紀錄 */}
+      {/* 🗓️ 歷史紀錄（可展開） */}
       <div style={{ marginTop: "40px" }}>
         <h2 style={{ color: "#14532d" }}>📜 過往紀錄</h2>
         {history.length === 0 ? (
@@ -265,26 +302,55 @@ export default function CancerCareTrackerTW() {
           history
             .sort((a: any, b: any) => (a.date < b.date ? 1 : -1))
             .map((r: any) => (
-              <details key={r.date} style={{ marginBottom: "10px" }}>
+              <details
+                key={r.date}
+                style={{
+                  marginBottom: "15px",
+                  background: "#f9fafb",
+                  borderRadius: "8px",
+                  padding: "10px",
+                  border: "1px solid #e5e7eb",
+                }}
+              >
                 <summary
                   style={{
                     cursor: "pointer",
-                    color: "#166534",
                     fontWeight: 600,
+                    color: "#166534",
+                    fontSize: "1.1em",
+                    marginBottom: "8px",
                   }}
                 >
-                  {r.date}
+                  📅 {r.date}
                 </summary>
-                <pre
-                  style={{
-                    background: "#f3f4f6",
-                    padding: "10px",
-                    borderRadius: "8px",
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {JSON.stringify(r.data, null, 2)}
-                </pre>
+
+                {Object.entries(r.data).map(([time, sections]: [string, any]) => (
+                  <div
+                    key={time}
+                    style={{
+                      marginBottom: "12px",
+                      background: "#ffffff",
+                      borderRadius: "6px",
+                      padding: "8px 10px",
+                      border: "1px solid #d1d5db",
+                    }}
+                  >
+                    <h4 style={{ color: "#15803d", marginBottom: "6px" }}>{time}</h4>
+
+                    {Object.entries(sections).map(([section, fields]: [string, any]) => (
+                      <div key={section} style={{ marginLeft: "10px", marginBottom: "6px" }}>
+                        <strong style={{ color: "#374151" }}>{section}：</strong>
+                        <div style={{ marginLeft: "8px" }}>
+                          {Object.entries(fields).map(([key, value]: [string, any]) => (
+                            <div key={key} style={{ fontSize: "0.9em", color: "#4b5563" }}>
+                              {key}：{value || "—"}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </details>
             ))
         )}
