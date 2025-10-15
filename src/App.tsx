@@ -13,7 +13,7 @@ export default function CancerCareTrackerTW() {
   const [todayDate, setTodayDate] = useState<string>("");
   const [showMorningNotice, setShowMorningNotice] = useState<boolean>(false);
 
-  // 🧩 Deep clone helper (prevents frozen editing bug)
+  // 🧩 Deep clone helper
   const deepClone = (obj: any) => JSON.parse(JSON.stringify(obj));
 
   const defaultSections = {
@@ -23,10 +23,9 @@ export default function CancerCareTrackerTW() {
     其他觀察: { 心情: "穩定", 皮膚: "", 睡眠: "一般", 備註: "" },
   };
 
-  // Taiwan time helpers
+  // Taiwan time
   const getTaiwanDate = () =>
     new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
-
   const getTaiwanHour = () =>
     parseInt(
       new Date().toLocaleString("zh-TW", {
@@ -44,7 +43,7 @@ export default function CancerCareTrackerTW() {
     return "夜間 (22–7)";
   };
 
-  // 🕒 Initialize / Load existing data
+  // 🕒 Initialize
   useEffect(() => {
     const date = getTaiwanDate();
     setTodayDate(date);
@@ -74,7 +73,7 @@ export default function CancerCareTrackerTW() {
     return () => clearInterval(timer);
   }, []);
 
-  // 🕗 Auto new sheet every 8 AM
+  // 🕗 Auto new sheet 8AM
   useEffect(() => {
     const interval = setInterval(() => {
       const hour = getTaiwanHour();
@@ -95,7 +94,6 @@ export default function CancerCareTrackerTW() {
     return () => clearInterval(interval);
   }, [todayDate]);
 
-  // 💾 Save data
   const saveData = (newData: RecordData) => {
     const date = getTaiwanDate();
     const updatedRecord = { date, data: newData };
@@ -105,7 +103,6 @@ export default function CancerCareTrackerTW() {
     localStorage.setItem("careTrackerRecords", JSON.stringify(updatedHistory));
   };
 
-  // ✏️ Handle field change
   const handleChange = (
     time: string,
     section: string,
@@ -123,12 +120,18 @@ export default function CancerCareTrackerTW() {
     saveData(newData);
   };
 
+  // 🟢 FIX: Delay focus change for mobile
+  const handleFocus = (key: string) => {
+    setTimeout(() => setFocusedField(key), 100);
+  };
+
   const baseInputStyle = {
     width: "100%",
     padding: "6px",
     borderRadius: "6px",
     border: "1px solid #ccc",
     transition: "background-color 0.2s ease",
+    fontSize: "16px", // 🟢 Prevent iOS zoom
   };
 
   const getInputStyle = (key: string) => ({
@@ -198,7 +201,7 @@ export default function CancerCareTrackerTW() {
                 <input
                   type="text"
                   value={todayData[time]?.["生命徵象"]?.[field] || ""}
-                  onFocus={() => setFocusedField(`${time}-${field}`)}
+                  onFocus={() => handleFocus(`${time}-${field}`)}
                   onBlur={() => setFocusedField(null)}
                   onChange={(e) =>
                     handleChange(time, "生命徵象", field, e.target.value)
@@ -211,6 +214,8 @@ export default function CancerCareTrackerTW() {
               <label>疼痛：</label>
               <select
                 value={todayData[time]?.["生命徵象"]?.["疼痛"] || "無"}
+                onFocus={() => handleFocus(`${time}-疼痛`)}
+                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "生命徵象", "疼痛", e.target.value)
                 }
@@ -228,10 +233,12 @@ export default function CancerCareTrackerTW() {
               <input
                 type="text"
                 value={todayData[time]?.["飲食與液體"]?.["食物"] || ""}
+                onFocus={() => handleFocus(`${time}-食物`)}
+                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "飲食與液體", "食物", e.target.value)
                 }
-                style={baseInputStyle}
+                style={getInputStyle(`${time}-食物`)}
               />
             </div>
             <div style={{ marginBottom: "8px" }}>
@@ -239,16 +246,20 @@ export default function CancerCareTrackerTW() {
               <input
                 type="number"
                 value={todayData[time]?.["飲食與液體"]?.["液體攝取量"] || ""}
+                onFocus={() => handleFocus(`${time}-液體攝取量`)}
+                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "飲食與液體", "液體攝取量", e.target.value)
                 }
-                style={baseInputStyle}
+                style={getInputStyle(`${time}-液體攝取量`)}
               />
             </div>
             <div style={{ marginBottom: "8px" }}>
               <label>食慾：</label>
               <select
                 value={todayData[time]?.["飲食與液體"]?.["食慾"] || "一般"}
+                onFocus={() => handleFocus(`${time}-食慾`)}
+                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "飲食與液體", "食慾", e.target.value)
                 }
@@ -267,16 +278,20 @@ export default function CancerCareTrackerTW() {
               <input
                 type="text"
                 value={todayData[time]?.["藥物與廁所"]?.["藥物紀錄"] || ""}
+                onFocus={() => handleFocus(`${time}-藥物紀錄`)}
+                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "藥物與廁所", "藥物紀錄", e.target.value)
                 }
-                style={baseInputStyle}
+                style={getInputStyle(`${time}-藥物紀錄`)}
               />
             </div>
             <div style={{ marginBottom: "8px" }}>
               <label>廁所：</label>
               <select
                 value={todayData[time]?.["藥物與廁所"]?.["廁所"] || "無"}
+                onFocus={() => handleFocus(`${time}-廁所`)}
+                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "藥物與廁所", "廁所", e.target.value)
                 }
@@ -295,6 +310,8 @@ export default function CancerCareTrackerTW() {
               <label>心情：</label>
               <select
                 value={todayData[time]?.["其他觀察"]?.["心情"] || "穩定"}
+                onFocus={() => handleFocus(`${time}-心情`)}
+                onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
                   handleChange(time, "其他觀察", "心情", e.target.value)
                 }
@@ -312,10 +329,12 @@ export default function CancerCareTrackerTW() {
                 <input
                   type="text"
                   value={todayData[time]?.["其他觀察"]?.[field] || ""}
+                  onFocus={() => handleFocus(`${time}-${field}`)}
+                  onBlur={() => setFocusedField(null)}
                   onChange={(e) =>
                     handleChange(time, "其他觀察", field, e.target.value)
                   }
-                  style={baseInputStyle}
+                  style={getInputStyle(`${time}-${field}`)}
                 />
               </div>
             ))}
