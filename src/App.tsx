@@ -9,17 +9,34 @@ export default function CancerCareTrackerTW() {
   const [todayData, setTodayData] = useState<RecordData>({});
   const [history, setHistory] = useState<RecordData[]>([]);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [currentTimeLabel, setCurrentTimeLabel] = useState<string>("");
 
   const defaultSections = {
     生命徵象: { 體溫: "", 血壓: "", 脈搏: "", 疼痛: "無" },
     飲食與液體: { 食物: "", 液體攝取量: "", 食慾: "一般" },
     藥物與廁所: { 藥物紀錄: "", 廁所: "無" },
-    其他觀察: { 心情: "穩定", 皮膚: "", 睡眠: "", 備註: "" },
+    其他觀察: { 心情: "穩定", 皮膚: "", 睡眠: "一般", 備註: "" },
   };
 
   // ✅ Always use Taiwan time zone
   const getTaiwanDate = () =>
     new Date().toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" });
+
+  const getTaiwanHour = () =>
+    new Date().toLocaleString("zh-TW", {
+      timeZone: "Asia/Taipei",
+      hour: "2-digit",
+      hour12: false,
+    });
+
+  // 🕒 Determine which section should be highlighted
+  const determineCurrentTimeZone = () => {
+    const hour = parseInt(getTaiwanHour());
+    if (hour >= 6 && hour < 11) return "早晨 (6–11)";
+    if (hour >= 11 && hour < 16) return "中午 (11–16)";
+    if (hour >= 16 && hour < 21) return "傍晚 (16–21)";
+    return "夜間 (21–6)";
+  };
 
   useEffect(() => {
     const date = getTaiwanDate();
@@ -30,12 +47,16 @@ export default function CancerCareTrackerTW() {
       const todayRecord = parsed.find((r: any) => r.date === date);
       if (todayRecord) setTodayData(todayRecord.data);
       else
-        setTodayData(
-          Object.fromEntries(times.map((t) => [t, defaultSections]))
-        );
+        setTodayData(Object.fromEntries(times.map((t) => [t, defaultSections])));
     } else {
       setTodayData(Object.fromEntries(times.map((t) => [t, defaultSections])));
     }
+
+    // ⏰ Auto update current section every minute
+    const updateTime = () => setCurrentTimeLabel(determineCurrentTimeZone());
+    updateTime();
+    const timer = setInterval(updateTime, 60000);
+    return () => clearInterval(timer);
   }, []);
 
   const saveData = (newData: RecordData) => {
@@ -70,9 +91,6 @@ export default function CancerCareTrackerTW() {
     borderRadius: "6px",
     border: "1px solid #ccc",
     transition: "background-color 0.2s ease",
-    MozAppearance: "textfield" as const,
-    WebkitAppearance: "none" as const,
-    appearance: "none" as const,
   };
 
   const getInputStyle = (key: string) => ({
@@ -86,189 +104,157 @@ export default function CancerCareTrackerTW() {
       <p style={{ textAlign: "center", color: "#555" }}>
         自動儲存，每日自動切換（依台灣時間）
         <br />
-        可於下方查看今日與過往紀錄
+        目前時段：<strong style={{ color: "#166534" }}>{currentTimeLabel}</strong>
       </p>
 
-      {times.map((time) => (
-        <div
-          key={time}
-          style={{
-            border: "2px solid #4ade80",
-            borderRadius: "12px",
-            padding: "16px",
-            marginTop: "20px",
-            backgroundColor: "#f9fff9",
-          }}
-        >
-          <h2 style={{ color: "#15803d", marginBottom: "10px" }}>{time}</h2>
-
-          {/* 生命徵象 */}
-          <h3>生命徵象</h3>
-          <div style={{ marginBottom: "8px" }}>
-            <label>體溫：</label>
-            <input
-              type="number"
-              step="any"
-              inputMode="decimal"
-              value={todayData[time]?.["生命徵象"]?.["體溫"] || ""}
-              onFocus={() => setFocusedField(`${time}-體溫`)}
-              onBlur={() => setFocusedField(null)}
-              onChange={(e) =>
-                handleChange(time, "生命徵象", "體溫", e.target.value)
-              }
-              style={getInputStyle(`${time}-體溫`)}
-            />
-          </div>
-          <div style={{ marginBottom: "8px" }}>
-            <label>血壓：</label>
-            <input
-              type="text"
-              value={todayData[time]?.["生命徵象"]?.["血壓"] || ""}
-              onFocus={() => setFocusedField(`${time}-血壓`)}
-              onBlur={() => setFocusedField(null)}
-              onChange={(e) =>
-                handleChange(time, "生命徵象", "血壓", e.target.value)
-              }
-              style={getInputStyle(`${time}-血壓`)}
-            />
-          </div>
-          <div style={{ marginBottom: "8px" }}>
-            <label>脈搏：</label>
-            <input
-              type="text"
-              value={todayData[time]?.["生命徵象"]?.["脈搏"] || ""}
-              onFocus={() => setFocusedField(`${time}-脈搏`)}
-              onBlur={() => setFocusedField(null)}
-              onChange={(e) =>
-                handleChange(time, "生命徵象", "脈搏", e.target.value)
-              }
-              style={getInputStyle(`${time}-脈搏`)}
-            />
-          </div>
-          <div style={{ marginBottom: "8px" }}>
-            <label>疼痛：</label>
-            <select
-              value={todayData[time]?.["生命徵象"]?.["疼痛"] || "無"}
-              onChange={(e) =>
-                handleChange(time, "生命徵象", "疼痛", e.target.value)
-              }
-              style={baseInputStyle}
+      {times.map((time) => {
+        const isActive = time === currentTimeLabel;
+        return (
+          <div
+            key={time}
+            style={{
+              border: `2px solid ${isActive ? "#4ade80" : "#d1d5db"}`,
+              borderRadius: "12px",
+              padding: "16px",
+              marginTop: "20px",
+              backgroundColor: isActive ? "#f0fdf4" : "#f9fafb",
+              boxShadow: isActive
+                ? "0 0 10px rgba(74, 222, 128, 0.4)"
+                : "none",
+              transition: "all 0.3s ease",
+            }}
+          >
+            <h2
+              style={{
+                color: isActive ? "#15803d" : "#6b7280",
+                marginBottom: "10px",
+              }}
             >
-              <option>無</option>
-              <option>有</option>
-            </select>
-          </div>
+              {time}
+              {isActive && "（目前時段）"}
+            </h2>
 
-          {/* 飲食與液體 */}
-          <h3>飲食與液體</h3>
-          <div style={{ marginBottom: "8px" }}>
-            <label>食物：</label>
-            <input
-              type="text"
-              value={todayData[time]?.["飲食與液體"]?.["食物"] || ""}
-              onFocus={() => setFocusedField(`${time}-食物`)}
-              onBlur={() => setFocusedField(null)}
-              onChange={(e) =>
-                handleChange(time, "飲食與液體", "食物", e.target.value)
-              }
-              style={getInputStyle(`${time}-食物`)}
-            />
-          </div>
-          <div style={{ marginBottom: "8px" }}>
-            <label>液體攝取量 (mL)：</label>
-            <input
-              type="number"
-              step="any"
-              inputMode="decimal"
-              value={todayData[time]?.["飲食與液體"]?.["液體攝取量"] || ""}
-              onFocus={() => setFocusedField(`${time}-液體攝取量`)}
-              onBlur={() => setFocusedField(null)}
-              onChange={(e) =>
-                handleChange(time, "飲食與液體", "液體攝取量", e.target.value)
-              }
-              style={getInputStyle(`${time}-液體攝取量`)}
-            />
-          </div>
-          <div style={{ marginBottom: "8px" }}>
-            <label>食慾：</label>
-            <select
-              value={todayData[time]?.["飲食與液體"]?.["食慾"] || "一般"}
-              onChange={(e) =>
-                handleChange(time, "飲食與液體", "食慾", e.target.value)
-              }
-              style={baseInputStyle}
-            >
-              <option>好</option>
-              <option>一般</option>
-              <option>差</option>
-            </select>
-          </div>
-
-          {/* 藥物與廁所 */}
-          <h3>藥物與廁所</h3>
-          <div style={{ marginBottom: "8px" }}>
-            <label>藥物名稱 / 時間 / 劑量：</label>
-            <input
-              type="text"
-              value={todayData[time]?.["藥物與廁所"]?.["藥物紀錄"] || ""}
-              onFocus={() => setFocusedField(`${time}-藥物紀錄`)}
-              onBlur={() => setFocusedField(null)}
-              onChange={(e) =>
-                handleChange(time, "藥物與廁所", "藥物紀錄", e.target.value)
-              }
-              style={getInputStyle(`${time}-藥物紀錄`)}
-            />
-          </div>
-          <div style={{ marginBottom: "8px" }}>
-            <label>廁所：</label>
-            <select
-              value={todayData[time]?.["藥物與廁所"]?.["廁所"] || "無"}
-              onChange={(e) =>
-                handleChange(time, "藥物與廁所", "廁所", e.target.value)
-              }
-              style={baseInputStyle}
-            >
-              <option>無</option>
-              <option>小號</option>
-              <option>大號</option>
-              <option>大小號</option>
-            </select>
-          </div>
-
-          {/* 其他觀察 */}
-          <h3>其他觀察</h3>
-          <div style={{ marginBottom: "8px" }}>
-            <label>心情：</label>
-            <select
-              value={todayData[time]?.["其他觀察"]?.["心情"] || "穩定"}
-              onChange={(e) =>
-                handleChange(time, "其他觀察", "心情", e.target.value)
-              }
-              style={baseInputStyle}
-            >
-              <option>穩定</option>
-              <option>焦慮</option>
-              <option>疲倦</option>
-              <option>其他</option>
-            </select>
-          </div>
-          {["皮膚", "睡眠", "備註"].map((field) => (
-            <div key={field} style={{ marginBottom: "8px" }}>
-              <label>{field}：</label>
+            {/* 生命徵象 */}
+            <h3>生命徵象</h3>
+            <div style={{ marginBottom: "8px" }}>
+              <label>體溫：</label>
               <input
-                type="text"
-                value={todayData[time]?.["其他觀察"]?.[field] || ""}
-                onFocus={() => setFocusedField(`${time}-${field}`)}
+                type="number"
+                step="any"
+                inputMode="decimal"
+                value={todayData[time]?.["生命徵象"]?.["體溫"] || ""}
+                onFocus={() => setFocusedField(`${time}-體溫`)}
                 onBlur={() => setFocusedField(null)}
                 onChange={(e) =>
-                  handleChange(time, "其他觀察", field, e.target.value)
+                  handleChange(time, "生命徵象", "體溫", e.target.value)
                 }
-                style={getInputStyle(`${time}-${field}`)}
+                style={getInputStyle(`${time}-體溫`)}
               />
             </div>
-          ))}
-        </div>
-      ))}
+            <div style={{ marginBottom: "8px" }}>
+              <label>血壓：</label>
+              <input
+                type="text"
+                value={todayData[time]?.["生命徵象"]?.["血壓"] || ""}
+                onFocus={() => setFocusedField(`${time}-血壓`)}
+                onBlur={() => setFocusedField(null)}
+                onChange={(e) =>
+                  handleChange(time, "生命徵象", "血壓", e.target.value)
+                }
+                style={getInputStyle(`${time}-血壓`)}
+              />
+            </div>
+            <div style={{ marginBottom: "8px" }}>
+              <label>脈搏：</label>
+              <input
+                type="text"
+                value={todayData[time]?.["生命徵象"]?.["脈搏"] || ""}
+                onFocus={() => setFocusedField(`${time}-脈搏`)}
+                onBlur={() => setFocusedField(null)}
+                onChange={(e) =>
+                  handleChange(time, "生命徵象", "脈搏", e.target.value)
+                }
+                style={getInputStyle(`${time}-脈搏`)}
+              />
+            </div>
+            <div style={{ marginBottom: "8px" }}>
+              <label>疼痛：</label>
+              <select
+                value={todayData[time]?.["生命徵象"]?.["疼痛"] || "無"}
+                onChange={(e) =>
+                  handleChange(time, "生命徵象", "疼痛", e.target.value)
+                }
+                style={baseInputStyle}
+              >
+                <option>無</option>
+                <option>有</option>
+              </select>
+            </div>
+
+            {/* 飲食與液體 */}
+            <h3>飲食與液體</h3>
+            <div style={{ marginBottom: "8px" }}>
+              <label>食物：</label>
+              <input
+                type="text"
+                value={todayData[time]?.["飲食與液體"]?.["食物"] || ""}
+                onFocus={() => setFocusedField(`${time}-食物`)}
+                onBlur={() => setFocusedField(null)}
+                onChange={(e) =>
+                  handleChange(time, "飲食與液體", "食物", e.target.value)
+                }
+                style={getInputStyle(`${time}-食物`)}
+              />
+            </div>
+            <div style={{ marginBottom: "8px" }}>
+              <label>液體攝取量 (mL)：</label>
+              <input
+                type="number"
+                step="any"
+                inputMode="decimal"
+                value={todayData[time]?.["飲食與液體"]?.["液體攝取量"] || ""}
+                onFocus={() => setFocusedField(`${time}-液體攝取量`)}
+                onBlur={() => setFocusedField(null)}
+                onChange={(e) =>
+                  handleChange(time, "飲食與液體", "液體攝取量", e.target.value)
+                }
+                style={getInputStyle(`${time}-液體攝取量`)}
+              />
+            </div>
+            <div style={{ marginBottom: "8px" }}>
+              <label>食慾：</label>
+              <select
+                value={todayData[time]?.["飲食與液體"]?.["食慾"] || "一般"}
+                onChange={(e) =>
+                  handleChange(time, "飲食與液體", "食慾", e.target.value)
+                }
+                style={baseInputStyle}
+              >
+                <option>好</option>
+                <option>一般</option>
+                <option>無</option>
+              </select>
+            </div>
+
+            {/* 其他觀察 */}
+            <h3>其他觀察</h3>
+            <div style={{ marginBottom: "8px" }}>
+              <label>睡眠：</label>
+              <select
+                value={todayData[time]?.["其他觀察"]?.["睡眠"] || "一般"}
+                onChange={(e) =>
+                  handleChange(time, "其他觀察", "睡眠", e.target.value)
+                }
+                style={baseInputStyle}
+              >
+                <option>好</option>
+                <option>一般</option>
+                <option>無</option>
+              </select>
+            </div>
+          </div>
+        );
+      })}
 
       {/* 歷史紀錄 */}
       <div style={{ marginTop: "40px" }}>
