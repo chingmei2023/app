@@ -94,14 +94,26 @@ export default function CancerCareTrackerTW() {
     return () => clearInterval(interval);
   }, [todayDate]);
 
-  const saveData = (newData: RecordData) => {
-    const date = getTaiwanDate();
-    const updatedRecord = { date, data: newData };
-    let updatedHistory = history.filter((r: any) => r.date !== date);
-    updatedHistory.push(updatedRecord);
-    setHistory(updatedHistory);
-    localStorage.setItem("careTrackerRecords", JSON.stringify(updatedHistory));
-  };
+// 💾 Save data safely (deep copy & limit to 10 days)
+const saveData = (newData: RecordData) => {
+  const date = getTaiwanDate();
+  const deepClone = (obj: any) => JSON.parse(JSON.stringify(obj));
+
+  // Create a frozen snapshot of today’s data
+  const updatedRecord = { date, data: deepClone(newData) };
+
+  let updatedHistory = history.filter((r: any) => r.date !== date);
+  updatedHistory.push(updatedRecord);
+
+  // Keep only the latest 10 days
+  updatedHistory = updatedHistory
+    .sort((a: any, b: any) => (a.date < b.date ? 1 : -1))
+    .slice(0, 10);
+
+  setHistory(updatedHistory);
+  localStorage.setItem("careTrackerRecords", JSON.stringify(updatedHistory));
+};
+
 
   const handleChange = (
     time: string,
