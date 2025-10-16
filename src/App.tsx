@@ -84,7 +84,16 @@ export default function CancerCareTrackerTW() {
         const newEmpty = Object.fromEntries(
           times.map((t) => [t, deepClone(defaultSections)])
         );
-        parsed.push({ date: dateNow, data: newEmpty });
+        // 🧩 Deep clone to isolate old days
+        const deepClone = (obj: any) => JSON.parse(JSON.stringify(obj));
+        parsed.push({ date: dateNow, data: deepClone(newEmpty) });
+
+        // Keep last 10 days only
+        parsed = parsed
+          .sort((a: any, b: any) => (a.date < b.date ? 1 : -1))
+          .slice(0, 10);
+
+        
         localStorage.setItem("careTrackerRecords", JSON.stringify(parsed));
         setHistory(parsed);
         setTodayData(newEmpty);
